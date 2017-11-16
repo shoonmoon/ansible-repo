@@ -1,0 +1,41 @@
+---
+- name: Import GPG key for ffmpeg
+  rpm_key:
+    state: present
+    key: http://li.nux.ro/download/nux/RPM-GPG-KEY-nux.ro
+
+- name: Install Nux Dextop yum repo
+  yum:
+    name: http://li.nux.ro/download/nux/dextop/el7/x86_64/nux-dextop-release-0-5.el7.nux.noarch.rpm
+    state: present
+
+- name: Install ffmpeg
+  yum: name={{ item }} state=present
+  with_items:
+    - ffmpeg
+    - ffmpeg-devel
+
+- name: Create directory if they don't exist
+  block:
+    - name: "Checking folders"
+      stat:
+        path: "{{item}}"
+      register: folder_stats
+      with_items:
+        - ["/HLS","/HLS/vod"]
+    - name: "Creating multiple folders without disturbing previous permissions"
+      file:
+        path: "{{item.item}}"
+        state: directory
+        mode: 0755
+      when: item.stat.exists == false
+      with_items:
+        - "{{folder_stats.results}}"
+
+- name: Copy video sources
+  copy:
+    src: "{{ item }}"
+    dest: /HLS/vod/
+    mode: 0755
+  with_fileglob:
+    - "{{ role_path }}/files/*"

@@ -1,0 +1,17 @@
+---
+- name: Install general packages
+  yum: name={{ item }} state=present
+  with_items:
+    - wget
+    - pcre
+    - pcre-devel
+    - openssl
+    - openssl-devel
+    - zlib
+    - zlib-devel
+    - unzip
+    - make
+    - gcc
+    - gcc-c++
+    - curl-devel
+  tags: general_packages

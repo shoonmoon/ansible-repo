@@ -1,0 +1,71 @@
+---
+- vars:
+    workspace_path: /nginx-1.10.3
+  file:
+    path: "{{ workspace_path }}"
+    state: directory
+    mode: 0755
+
+- name: Download nginx
+  vars:
+    nginx_url: http://nginx.org/download/nginx-1.10.3.tar.gz
+  get_url:
+    url: "{{ nginx_url }}"
+    dest: /nginx-1.10.3
+    mode: 0755
+
+- name: Unarchive nginx
+  unarchive:
+    src: /nginx-1.10.3/nginx-1.10.3.tar.gz
+    dest: /nginx-1.10.3
+    remote_src: yes
+
+- name: Download rtmp module
+  vars:
+    rtmp_url: https://github.com/arut/nginx-rtmp-module/archive/master.zip
+  get_url:
+    url: "{{ rtmp_url }}"
+    dest: /nginx-1.10.3
+    mode: 0755
+
+- name: Unarchive rtmp module
+  unarchive:
+    src: /nginx-1.10.3/nginx-rtmp-module-master.zip
+    dest: /nginx-1.10.3
+    remote_src: yes
+
+- name: Install nginx
+  command: "{{ item }} chdir=/nginx-1.10.3/nginx-1.10.3/"
+  with_items:
+    - ./configure --with-http_ssl_module --add-module=../nginx-rtmp-module-master
+    - make
+    - make install
+
+- name: Copy html index contents
+  copy:
+    src: "{{ role_path }}/files/html/"
+    dest: /usr/local/nginx/html/
+    backup: yes
+
+- name: Copy nginx configuration for HLS
+  template:
+    src: nginx.conf.j2
+    dest: /usr/local/nginx/conf/nginx.conf
+    backup: yes
+  notify: restart nginx
+
+- name: Test if we are using systemd
+  shell: "if [ -d /lib/systemd/system ] ; then echo 'true' ; else echo 'false' ; fi"
+  register: have_systemd
+
+
+- name: Install the systemd script if using systemd
+  template:
+    src: nginx.service.systemd.j2
+    dest: /lib/systemd/system/nginx.service
+    owner: root
+    group: root
+    mode: 0755
+  when: "{{ have_systemd.stdout == 'true' }}"
+  notify:
+    - restart nginx
